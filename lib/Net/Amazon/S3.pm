@@ -339,7 +339,7 @@ Takes a scalar argument, the name of the bucket you're creating
 Returns an (unverified) bucket object from an account. Does no network access.
 
 =cut
-
+#@returns Net::Amazon::S3::Bucket
 sub bucket {
     my ( $self, $bucketname ) = @_;
     return Net::Amazon::S3::Bucket->new(
