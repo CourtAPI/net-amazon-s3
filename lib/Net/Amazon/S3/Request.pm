@@ -7,8 +7,19 @@ use Regexp::Common qw /net/;
 
 # ABSTRACT: Base class for request objects
 
+# https://docs.aws.amazon.com/AmazonS3/latest/dev/acl-overview.html
 enum 'AclShort' =>
-    [ qw(private public-read public-read-write authenticated-read) ];
+  [ qw(
+    private
+    public-read
+    public-read-write
+    aws-exec-read
+    authenticated-read
+    bucket-owner-read
+    bucket-owner-full-control
+    log-delivery-write
+  ) ];
+
 enum 'LocationConstraint' => [ 'US', 'EU' ];
 
 # To comply with Amazon S3 requirements, bucket names must:
