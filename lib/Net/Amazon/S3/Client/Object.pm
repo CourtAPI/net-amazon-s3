@@ -37,7 +37,9 @@ has 'key'  => ( is => 'ro', isa => 'Str',  required => 1 );
 has 'etag' => ( is => 'ro', isa => 'Etag', required => 0 );
 has 'size' => ( is => 'ro', isa => 'Int',  required => 0 );
 has 'last_modified' =>
-    ( is => 'ro', isa => DateTime, coerce => 1, required => 0 );
+    ( is => 'ro', isa => DateTime, coerce => 1, required => 0, default => sub { shift->last_modified_raw }, lazy => 1 );
+has 'last_modified_raw' =>
+    ( is => 'ro', isa => 'Str', required => 0 );
 has 'expires' => ( is => 'rw', isa => DateTime, coerce => 1, required => 0 );
 has 'acl_short' =>
     ( is => 'ro', isa => 'AclShort', required => 0, default => 'private' );
@@ -110,10 +112,11 @@ sub _get {
     my $content       = $http_response->content;
     $self->_load_user_metadata($http_response);
 
-    my $md5_hex = md5_hex($content);
     my $etag = $self->etag || $self->_etag($http_response);
-    confess 'Corrupted download'
-        if( !$self->_is_multipart_etag($etag) && $etag ne $md5_hex);
+    unless ($self->_is_multipart_etag($etag)) {
+        my $md5_hex = md5_hex($content);
+        confess 'Corrupted download' if $etag ne $md5_hex;
+    }
 
     return $http_response;
 }
@@ -159,10 +162,11 @@ sub get_filename {
 
     $self->_load_user_metadata($http_response);
 
-    my $md5_hex = file_md5_hex($filename);
     my $etag = $self->etag || $self->_etag($http_response);
-    confess 'Corrupted download'
-        if( !$self->_is_multipart_etag($etag) && $etag ne $md5_hex);
+    unless ($self->_is_multipart_etag($etag)) {
+        my $md5_hex = file_md5_hex($filename);
+        confess 'Corrupted download' if $etag ne $md5_hex;
+    }
 }
 
 sub _load_user_metadata {
@@ -231,7 +235,7 @@ sub _put {
 
     my $etag = $self->_etag($http_response);
 
-    confess 'Corrupted upload' if $etag ne $md5_hex;
+    confess "Corrupted upload got $etag expected $md5_hex" if $etag ne $md5_hex;
 }
 
 sub put_filename {
@@ -526,6 +530,15 @@ This module represents objects in buckets.
   # download the value of the object into a file
   my $object = $bucket->object( key => 'images/my_hat.jpg' );
   $object->get_filename('hat_backup.jpg');
+
+=head2 last_modified, last_modified_raw
+
+  # get the last_modified data as DateTime (slow)
+  my $dt = $obj->last_modified;
+  # or raw string in form '2015-05-15T10:12:40.000Z' (fast)
+  # use this form if you are working with thousands of objects and
+  # do not actually need an expensive DateTime for each of them
+  my $raw = $obj->last_modified_raw;
 
 =head2 key
 

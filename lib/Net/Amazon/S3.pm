@@ -101,14 +101,13 @@ in buckets. Bucket names are global.
 Note: This is the legacy interface, please check out
 L<Net::Amazon::S3::Client> instead.
 
-Development of this code happens here: http://github.com/pfig/net-amazon-s3/
-
-Homepage for the project (just started) is at http://pfig.github.com/net-amazon-s3/
+Development of this code happens here: https://github.com/rustyconover/net-amazon-s3
 
 =cut
 
 use Carp;
 use Digest::HMAC_SHA1;
+use Scalar::Util;
 
 use Net::Amazon::S3::Bucket;
 use Net::Amazon::S3::Client;
@@ -134,6 +133,8 @@ use Net::Amazon::S3::Request::PutObject;
 use Net::Amazon::S3::Request::PutPart;
 use Net::Amazon::S3::Request::SetBucketAccessControl;
 use Net::Amazon::S3::Request::SetObjectAccessControl;
+use Net::Amazon::S3::Signature::V2;
+use Net::Amazon::S3::Signature::V4;
 use LWP::UserAgent::Determined;
 use URI::Escape qw(uri_escape_utf8);
 use XML::LibXML;
@@ -146,12 +147,24 @@ has 'secure' => ( is => 'ro', isa => 'Bool', required => 0, default => 0 );
 has 'timeout' => ( is => 'ro', isa => 'Num',  required => 0, default => 30 );
 has 'retry'   => ( is => 'ro', isa => 'Bool', required => 0, default => 0 );
 has 'host'    => ( is => 'ro', isa => 'Str',  required => 0, default => 's3.amazonaws.com' );
-
+has 'use_virtual_host' => (
+    is => 'ro',
+    isa => 'Bool',
+    required => 0,
+    lazy => 1,
+    default => sub { $_[0]->authorization_method->enforce_use_virtual_host },
+);
 has 'libxml' => ( is => 'rw', isa => 'XML::LibXML',    required => 0 );
 has 'ua'     => ( is => 'rw', isa => 'LWP::UserAgent', required => 0 );
 has 'err'    => ( is => 'rw', isa => 'Maybe[Str]',     required => 0 );
 has 'errstr' => ( is => 'rw', isa => 'Maybe[Str]',     required => 0 );
 has 'aws_session_token' => ( is => 'rw', isa => 'Str', required => 0 );
+has authorization_method => (
+    is => 'ro',
+    isa => 'Str',
+    required => 0,
+    default => 'Net::Amazon::S3::Signature::V4',
+);
 
 __PACKAGE__->meta->make_immutable;
 
@@ -198,6 +211,8 @@ with a true value.
 Set this to C<1> if you want to use SSL-encrypted connections when talking
 to S3. Defaults to C<0>.
 
+To use SSL-encrypted connections, LWP::Protocol::https is required.
+
 =item timeout
 
 How many seconds should your script wait before bailing on a request to S3? Defaults
@@ -215,6 +230,25 @@ The S3 host endpoint to use. Defaults to 's3.amazonaws.com'. This allows
 you to connect to any S3-compatible host.
 
 =back
+
+=item use_virtual_host
+
+Use the virtual host method ('bucketname.s3.amazonaws.com') instead of specifying the
+bucket at the first part of the path. This is particularily useful if you want to access
+buckets not located in the US-Standard region (such as EU, Asia Pacific or South America).
+See L<http://docs.aws.amazon.com/AmazonS3/latest/dev/VirtualHosting.html> for the pros and cons.
+
+=back
+
+=head3 Notes
+
+When using L<Net::Amazon::S3> in child processes using fork (such as in
+combination with the excellent L<Parallel::ForkManager>) you should create the
+S3 object in each child, use a fresh LWP::UserAgent in each child, or disable
+the L<LWP::ConnCache> in the parent:
+
+    $s3->ua( LWP::UserAgent->new( 
+        keep_alive => 0, requests_redirectable => [qw'GET HEAD DELETE PUT POST'] );
 
 =cut
 
@@ -341,9 +375,13 @@ Returns an (unverified) bucket object from an account. Does no network access.
 =cut
 #@returns Net::Amazon::S3::Bucket
 sub bucket {
-    my ( $self, $bucketname ) = @_;
+    my ( $self, $bucket ) = @_;
+
+    return $bucket
+        if Scalar::Util::blessed( $bucket ) && $bucket->isa( 'Net::Amazon::S3::Bucket' );
+
     return Net::Amazon::S3::Bucket->new(
-        { bucket => $bucketname, account => $self } );
+        { bucket => $bucket, account => $self } );
 }
 
 =head2 delete_bucket
