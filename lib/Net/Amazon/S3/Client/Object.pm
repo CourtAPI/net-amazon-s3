@@ -27,7 +27,7 @@ enum 'AclShort' =>
     ) ];
 
 enum 'StorageClass' =>
-    [ qw(standard reduced_redundancy) ];
+    [ qw(standard reduced_redundancy standard_ia onezone_ia) ];
 
 has 'client' =>
     ( is => 'ro', isa => 'Net::Amazon::S3::Client', required => 1 );
@@ -564,7 +564,8 @@ You may also set Content-Encoding using C<content_encoding>, and
 Content-Disposition using C<content_disposition>.
 
 You may specify the S3 storage class by setting C<storage_class> to either
-C<standard> or C<reduced_redundancy>; the default is C<standard>.
+C<standard>, C<reduced_redundancy>, C<standard_ia>, or C<onezone_ia>;
+the default is C<standard>.
 
 =head2 put_filename
 
@@ -588,7 +589,8 @@ You may also set Content-Encoding using C<content_encoding>, and
 Content-Disposition using C<content_disposition>.
 
 You may specify the S3 storage class by setting C<storage_class> to either
-C<standard> or C<reduced_redundancy>; the default is C<standard>.
+C<standard>, C<reduced_redundancy>, C<standard_ia>, or C<onezone_ia>;
+the default is C<standard>.
 
 User metadata may be set by providing a non-empty hashref as
 C<user_metadata>.

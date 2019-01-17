@@ -173,19 +173,6 @@ has authorization_method => (
     },
 );
 
-sub BUILD {
-    my ($self) = @_;
-
-    if ($self->use_iam_role) {
-        eval "require VM::EC2::Security::CredentialCache" or die $@;
-        my $creds = VM::EC2::Security::CredentialCache->get();
-        defined($creds) || die("Unable to retrieve IAM role credentials");
-        $self->aws_access_key_id($creds->accessKeyId);
-        $self->aws_secret_access_key($creds->secretAccessKey);
-        $self->aws_session_token($creds->sessionToken);
-    }
-}
-
 __PACKAGE__->meta->make_immutable;
 
 my $KEEP_ALIVE_CACHESIZE = 10;
@@ -252,7 +239,7 @@ you to connect to any S3-compatible host.
 =item use_virtual_host
 
 Use the virtual host method ('bucketname.s3.amazonaws.com') instead of specifying the
-bucket at the first part of the path. This is particularily useful if you want to access
+bucket at the first part of the path. This is particularly useful if you want to access
 buckets not located in the US-Standard region (such as EU, Asia Pacific or South America).
 See L<http://docs.aws.amazon.com/AmazonS3/latest/dev/VirtualHosting.html> for the pros and cons.
 
@@ -307,6 +294,15 @@ sub BUILD {
 
     $self->ua($ua);
     $self->libxml( XML::LibXML->new );
+
+    if ($self->use_iam_role) {
+        eval "require VM::EC2::Security::CredentialCache" or die $@;
+        my $creds = VM::EC2::Security::CredentialCache->get();
+        defined($creds) || die("Unable to retrieve IAM role credentials");
+        $self->aws_access_key_id($creds->accessKeyId);
+        $self->aws_secret_access_key($creds->secretAccessKey);
+        $self->aws_session_token($creds->sessionToken);
+    }
 }
 
 =head2 buckets
@@ -362,7 +358,7 @@ The name of the bucket you want to add
 
 =item acl_short (optional)
 
-See the set_acl subroutine for documenation on the acl_short options
+See the set_acl subroutine for documentation on the acl_short options
 
 =item location_constraint (option)
 
